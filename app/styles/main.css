@@ -6,10 +6,10 @@
   transform: translateX(-50%);
   width: 50%;
   min-width: 300px;
-  z-index: 999999;
+  z-index: 999999; /* Increased z-index */
   background: white;
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* Search input */
@@ -20,7 +20,6 @@
   border-radius: 4px;
   font-size: 16px;
   box-sizing: border-box;
-  outline: none;
 }
 
 #litnav_search_box input:focus {
@@ -28,19 +27,11 @@
   border-color: #0070d2;
 }
 
-/* Make sure the search box is on top of Salesforce elements */
-#litnav_search_box:not(.litnav_hidden) {
-  visibility: visible !important;
-  opacity: 1 !important;
-  pointer-events: auto !important;
-}
-
 /* Results container */
 #litnav_results {
   max-height: 400px;
   overflow-y: auto;
-  background: white;
-  border: 1px solid #ddd;
+  border: 1px solid #d8dde6;
   border-top: none;
   border-radius: 0 0 4px 4px;
 }
@@ -110,4 +101,9 @@
 /* Hide command bar */
 .litnav_hidden {
   display: none !important;
+}
+
+/* Debug style to verify positioning */
+#litnav_search_box:not(.litnav_hidden) {
+  outline: 2px solid red; /* Temporary debug outline */
 }

@@ -8,3 +8,4 @@ dist/
 *.sublime-project
 *.sublime-workspace
 .env
+aisrc/
