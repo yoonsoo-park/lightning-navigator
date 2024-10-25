@@ -1,0 +1,113 @@
+/* Command bar container */
+#litnav_search_box {
+  position: fixed;
+  top: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50%;
+  min-width: 300px;
+  z-index: 999999;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Search input */
+#litnav_quickSearch {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid #1589ee;
+  border-radius: 4px;
+  font-size: 16px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+#litnav_search_box input:focus {
+  outline: none;
+  border-color: #0070d2;
+}
+
+/* Make sure the search box is on top of Salesforce elements */
+#litnav_search_box:not(.litnav_hidden) {
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Results container */
+#litnav_results {
+  max-height: 400px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+}
+
+/* Results list */
+.litnav_results_list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.litnav_results_list li {
+  padding: 8px 15px;
+  cursor: pointer;
+  border-bottom: 1px solid #f4f6f9;
+}
+
+.litnav_results_list li:last-child {
+  border-bottom: none;
+}
+
+.litnav_results_list li:hover,
+.litnav_results_list li.selected {
+  background-color: #f4f6f9;
+}
+
+/* Loading indicator */
+.litnav_loading {
+  text-align: center;
+  padding: 20px;
+}
+
+/* Org limits table */
+.litnav_limits_table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.litnav_limits_table th,
+.litnav_limits_table td {
+  padding: 8px;
+  border: 1px solid #d8dde6;
+  text-align: left;
+}
+
+.litnav_limits_table th {
+  background-color: #f4f6f9;
+  font-weight: bold;
+}
+
+/* Error messages */
+.litnav_error {
+  color: #c23934;
+  padding: 10px 15px;
+  background-color: #fafaf9;
+  border-radius: 0 0 4px 4px;
+}
+
+/* Command description */
+.litnav_command_description {
+  color: #706e6b;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Hide command bar */
+.litnav_hidden {
+  display: none !important;
+}

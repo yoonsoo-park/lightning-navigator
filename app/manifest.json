@@ -1,0 +1,66 @@
+{
+  "name": "Lightning Navigator",
+  "version": "0.1.0",
+  "manifest_version": 3,
+  "default_locale": "en",
+  "commands": {
+    "show-command-bar": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Space",
+        "mac": "MacCtrl+Shift+Space"
+      },
+      "description": "Show Lightning Navigator Command Bar"
+    }
+  },
+  "action": {
+    "default_icon": "images/ncino_38.png",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "scripts/service_worker.js"
+  },
+  "icons": {
+    "128": "images/128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["images/ajax-loader.gif", "images/ncino_128.png"],
+      "matches": [
+        "https://*.force.com/*",
+        "https://*.salesforce.com/*",
+        "https://*.my-salesforce.com/*",
+        "https://*.cloudforce.com/*",
+        "https://*.visualforce.com/*"
+      ]
+    }
+  ],
+  "description": "Quick command palette for Salesforce navigation. Access Setup, create records, view lists, and manage objects with keyboard shortcuts. Works in Lightning and Classic.",
+  "content_scripts": [
+    {
+      "css": ["styles/main.css"],
+      "matches": [
+        "https://*.force.com/*",
+        "https://*.salesforce.com/*",
+        "https://*.my-salesforce.com/*",
+        "https://*.cloudforce.com/*",
+        "https://*.visualforce.com/*"
+      ],
+      "js": [
+        "scripts/jquery.js",
+        "scripts/mousetrap.min.js",
+        "scripts/forceTooling.js",
+        "scripts/main.js",
+        "scripts/sorttable.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "permissions": ["tabs", "cookies", "commands", "storage"],
+  "host_permissions": [
+    "https://*.force.com/*",
+    "https://*.salesforce.com/*",
+    "https://*.my-salesforce.com/*",
+    "https://*.cloudforce.com/*",
+    "https://*.visualforce.com/*"
+  ]
+}
