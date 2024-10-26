@@ -1,60 +1,37 @@
 {
-  "name": "Lightning Navigator",
-  "version": "0.4.2",
-  "manifest_version": 2,
+  "manifest_version": 3,
+  "name": "Salesforce Quick Search",
+  "version": "1.0",
+  "description": "Quick search for Salesforce with keyboard shortcuts",
   "default_locale": "en",
-  "commands": {
-    "show-command-bar": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+Space",
-        "mac": "MacCtrl+Shift+Space"
-      },
-      "description": "Show Lightning Navigator Command Bar"
+  "permissions": ["activeTab", "storage", "commands"],
+  "host_permissions": ["https://*.salesforce.com/*"],
+  "action": {
+    "default_icon": {
+      "16": "images/ncino38.png",
+      "48": "images/ncino38.png",
+      "128": "images/ncino128.png"
     }
   },
-  "browser_action": {
-    "default_icon": "images/ncino-38.png",
-    "default_popup": "popup.html"
+  "commands": {
+    "toggle-search": {
+      "suggested_key": {
+        "mac": "Command+Shift+Space",
+        "windows": "Ctrl+Shift+Space",
+        "chromeos": "Ctrl+Shift+Space",
+        "linux": "Ctrl+Shift+Space"
+      },
+      "description": "Toggle search overlay"
+    }
   },
-  "background": {
-    "scripts": ["scripts/litnav_background_bundle.js"],
-    "persistent": true
-  },
-  "icons": {
-    "128": "images/128.png"
-  },
-  "web_accessible_resources": [
-    "images/ajax-loader.gif",
-    "images/ncino-128.png"
-  ],
-  "description": "",
   "content_scripts": [
     {
-      "css": ["styles/main.css"],
-      "matches": [
-        "https://*.force.com/*",
-        "https://*.salesforce.com/*",
-        "https://*.my-salesforce.com/*",
-        "https://*.cloudforce.com/*",
-        "https://*.visualforce.com/*"
-      ],
-      "js": [
-        "scripts/jquery.js",
-        "scripts/mousetrap.min.js",
-        "scripts/forceTooling.js",
-        "scripts/main.js",
-        "scripts/sorttable.js"
-      ],
-      "run_at": "document_end"
+      "matches": ["https://*.salesforce.com/*"],
+      "css": ["styles.css"],
+      "js": ["content.js"]
     }
   ],
-  "permissions": [
-    "https://*.force.com/*",
-    "https://*.salesforce.com/*",
-    "https://*.my-salesforce.com/*",
-    "https://*.cloudforce.com/*",
-    "https://*.visualforce.com/*",
-    "tabs",
-    "cookies"
-  ]
+  "background": {
+    "service_worker": "background.js"
+  }
 }
