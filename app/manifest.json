@@ -1,6 +1,6 @@
 {
   "name": "Lightning Navigator",
-  "version": "1.0.0",
+  "version": "0.4.2",
   "manifest_version": 2,
   "default_locale": "en",
   "commands": {
@@ -13,7 +13,7 @@
     }
   },
   "browser_action": {
-    "default_icon": "images/ncino_38.png",
+    "default_icon": "images/ncino-38.png",
     "default_popup": "popup.html"
   },
   "background": {
@@ -25,7 +25,7 @@
   },
   "web_accessible_resources": [
     "images/ajax-loader.gif",
-    "images/ncino_128.png"
+    "images/ncino-128.png"
   ],
   "description": "",
   "content_scripts": [
@@ -36,8 +36,7 @@
         "https://*.salesforce.com/*",
         "https://*.my-salesforce.com/*",
         "https://*.cloudforce.com/*",
-        "https://*.visualforce.com/*",
-        "https://*.my.salesforce-setup.com/*"
+        "https://*.visualforce.com/*"
       ],
       "js": [
         "scripts/jquery.js",
@@ -55,7 +54,6 @@
     "https://*.my-salesforce.com/*",
     "https://*.cloudforce.com/*",
     "https://*.visualforce.com/*",
-    "https://*.my.salesforce-setup.com/*",
     "tabs",
     "cookies"
   ]

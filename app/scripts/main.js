@@ -1,28 +1,27 @@
-// Global variables
+/// Global variables
 let searchBox;
 let resultsList;
 let metaData;
 let cookie;
 let cmds = {};
 let lastResults = [];
-let mouseClickLoginAsEnabled = false;
 
-// Constants
+// Constants for key codes
 const KEY_UP = 38;
 const KEY_DOWN = 40;
 const ENTER = 13;
 const TAB = 9;
 const ESC = 27;
-const HASH = "#";
 
 // Initialize on document ready
 document.addEventListener("DOMContentLoaded", function () {
-  console.log("Lightning Navigator initialized"); // Debug log
+  console.log("Lightning Navigator initializing..."); // Debug log
   init();
 });
 
 // Initialize the extension
 function init() {
+  console.log("Creating search box..."); // Debug log
   createSearchBox();
 
   // Listen for messages including the show command
@@ -31,26 +30,31 @@ function init() {
     sender,
     sendResponse
   ) {
-    console.log("Message received:", request); // Debug log
+    console.log("Message received in content script:", request); // Debug log
 
     if (request.cookie) {
+      console.log("Cookie received:", request.cookie); // Debug log
       cookie = request.cookie;
       initializeMetadata();
     }
 
     if (request.action === "Show Command Bar") {
-      console.log("Show command bar action received"); // Debug log
+      console.log("Show command bar action received in content script"); // Debug log
       showSearchBox();
       return true;
     }
   });
 
   // Add both Mousetrap and direct event listeners for the shortcut
-  Mousetrap.bind(["ctrl+shift+space", "command+shift+space"], function (e) {
-    console.log("Shortcut triggered via Mousetrap"); // Debug log
-    showSearchBox();
-    return false;
-  });
+  try {
+    Mousetrap.bind(["ctrl+shift+space", "command+shift+space"], function (e) {
+      console.log("Shortcut triggered via Mousetrap"); // Debug log
+      showSearchBox();
+      return false;
+    });
+  } catch (e) {
+    console.error("Error binding Mousetrap shortcut:", e); // Debug log
+  }
 
   // Add direct keyboard event listener as backup
   document.addEventListener("keydown", function (e) {
@@ -60,6 +64,73 @@ function init() {
       e.preventDefault();
     }
   });
+}
+
+// Create and inject the search box HTML
+function createSearchBox() {
+  // Check if search box already exists
+  if (document.getElementById("litnav_search_box")) {
+    console.log("Search box already exists"); // Debug log
+    return;
+  }
+
+  console.log("Injecting search box HTML"); // Debug log
+
+  const boxHTML = `
+        <div id="litnav_search_box" class="litnav_hidden" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999999; background: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+            <input type="text" id="litnav_quickSearch" class="litnav_input" style="width: 500px; padding: 8px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Type to search..."/>
+            <div id="litnav_results" style="max-height: 400px; overflow-y: auto; margin-top: 8px;"></div>
+            <div id="litnav_loading" class="litnav_loading litnav_hidden">
+                <img src="${chrome.runtime.getURL(
+                  "images/ajax-loader.gif"
+                )}" alt="Loading..." />
+            </div>
+        </div>
+    `;
+
+  const container = document.createElement("div");
+  container.innerHTML = boxHTML;
+  document.body.appendChild(container.firstElementChild);
+
+  console.log("Search box created"); // Debug log
+
+  searchBox = document.getElementById("litnav_quickSearch");
+  resultsList = document.getElementById("litnav_results");
+
+  if (searchBox && resultsList) {
+    console.log("Search box elements initialized successfully"); // Debug log
+    // Add event listeners
+    searchBox.addEventListener("keyup", handleKeyUp);
+    searchBox.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("click", handleClickOutside);
+  } else {
+    console.error("Failed to initialize search box elements"); // Debug log
+  }
+}
+
+function showSearchBox() {
+  console.log("Attempting to show search box..."); // Debug log
+
+  const searchBoxElement = document.getElementById("litnav_search_box");
+  const quickSearchInput = document.getElementById("litnav_quickSearch");
+
+  if (!searchBoxElement) {
+    console.log("Search box not found, creating it..."); // Debug log
+    createSearchBox();
+  }
+
+  // Try getting elements again after potential creation
+  const finalSearchBox = document.getElementById("litnav_search_box");
+  const finalQuickSearch = document.getElementById("litnav_quickSearch");
+
+  if (finalSearchBox && finalQuickSearch) {
+    console.log("Showing and focusing search box"); // Debug log
+    finalSearchBox.classList.remove("litnav_hidden");
+    finalQuickSearch.value = "";
+    finalQuickSearch.focus();
+  } else {
+    console.error("Failed to show search box - elements not found"); // Debug log
+  }
 }
 
 // Create and inject the search box HTML
@@ -85,25 +156,6 @@ function createSearchBox() {
   searchBox.addEventListener("keyup", handleKeyUp);
   searchBox.addEventListener("keydown", handleKeyDown);
   document.addEventListener("click", handleClickOutside);
-}
-
-// Show the search box
-function showSearchBox() {
-  console.log("Showing search box"); // Debug log
-  const searchBox = document.getElementById("litnav_search_box");
-  if (searchBox) {
-    searchBox.classList.remove("litnav_hidden");
-    const quickSearch = document.getElementById("litnav_quickSearch");
-    if (quickSearch) {
-      quickSearch.focus();
-      quickSearch.value = "";
-      console.log("Search box focused"); // Debug log
-    } else {
-      console.log("Quick search input not found"); // Debug log
-    }
-  } else {
-    console.log("Search box element not found"); // Debug log
-  }
 }
 
 // Hide the search box
