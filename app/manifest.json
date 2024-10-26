@@ -5,13 +5,23 @@
   "description": "Quick search for Salesforce with keyboard shortcuts",
   "default_locale": "en",
   "permissions": ["activeTab", "storage", "commands"],
-  "host_permissions": ["https://*.salesforce.com/*"],
+  "host_permissions": ["https://*.salesforce.com/*", "https://*.force.com/*"],
   "action": {
     "default_icon": {
       "16": "images/ncino38.png",
       "48": "images/ncino38.png",
       "128": "images/ncino128.png"
     }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.salesforce.com/*", "https://*.force.com/*"],
+      "js": ["tooling-api.js", "content.js"],
+      "css": ["styles.css"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
   },
   "commands": {
     "toggle-search": {
@@ -23,15 +33,5 @@
       },
       "description": "Toggle search overlay"
     }
-  },
-  "content_scripts": [
-    {
-      "matches": ["https://*.salesforce.com/*"],
-      "css": ["styles.css"],
-      "js": ["content.js"]
-    }
-  ],
-  "background": {
-    "service_worker": "background.js"
   }
 }
