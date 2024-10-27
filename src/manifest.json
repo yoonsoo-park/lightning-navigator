@@ -1,0 +1,63 @@
+{
+    "name": "Lightning Navigator",
+    "version": "0.5.2",
+    "manifest_version": 3,
+    "default_locale": "en",
+    "commands": {
+        "show-command-bar": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+Space",
+                "mac": "Command+Shift+Space"
+            },
+            "description": "Show Lightning Navigator Command Bar"
+        }
+    },
+    "action": {
+        "default_icon": {
+            "16": "images/ncino38.png",
+            "48": "images/ncino38.png",
+            "128": "images/ncino128.png"
+        }
+    },
+    "background": {
+        "service_worker": "scripts/service-worker.js",
+        "type": "module"
+    },
+    "icons": {
+        "128": "images/128.png"
+    },
+    "description": "",
+    "content_scripts": [
+        {
+            "matches": [
+                "https://*.force.com/*",
+                "https://*.salesforce.com/*",
+                "https://*.my.salesforce.com/*",
+                "https://*.cloudforce.com/*",
+                "https://*.visualforce.com/*"
+            ],
+            "js": ["scripts/content.js"],
+            "css": ["styles/main.css"]
+        }
+    ],
+    "permissions": [
+        "storage",
+        "cookies",
+        "scripting",
+        "activeTab",
+        "offscreen"
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": ["offscreen.html"],
+            "matches": ["<all_urls>"]
+        }
+    ],
+    "host_permissions": [
+        "https://*.force.com/*",
+        "https://*.salesforce.com/*",
+        "https://*.my-salesforce.com/*",
+        "https://*.cloudforce.com/*",
+        "https://*.visualforce.com/*"
+    ]
+}
