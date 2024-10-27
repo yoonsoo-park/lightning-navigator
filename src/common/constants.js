@@ -1,110 +1,88 @@
-export const SF_API_VERSION = 'v46.0';
-export const excludedDomains = ['visual.force.com', 'content.force.com', 'lightning.force.com'];
-export const actionType = {
-  FETCH_COOKIE: 'Fetch Cookie',
-  STORE_COMMANDS: 'Store Commands',
-  GET_COMMANDS: 'Get Commands',
-  STORE_METADATA: 'Store Metadata',
-  GET_METADATA: 'Get Metadata',
-  QUERY_LABELS: 'Query Labels',
-  GET_LABELS: 'Get Labels',
-  REFRESH_METADATA: 'Refresh Metadata',
-  REFRESH_METADATA_SUCCESS: 'Refresh Metadata Success',
-  SHOW_COMMAND_BAR: 'Show Command Bar'
+export const API_VERSION = "v57.0";
+
+export const EXCLUDED_DOMAINS = [
+    "visual.force.com",
+    "content.force.com",
+    "lightning.force.com",
+];
+
+export const ACTION_TYPES = {
+    FETCH_COOKIE: "fetch-cookie",
+    GET_COMMANDS: "get-commands",
+    GET_METADATA: "get-metadata",
+    REFRESH_METADATA: "refresh-metadata",
+    REFRESH_METADATA_SUCCESS: "refresh-metadata-success",
+    QUERY_LABELS: "query-labels",
+    SHOW_COMMAND_BAR: "show-command-bar",
+    SEARCH_RECORDS: "search-records",
 };
-export const command = {
-  ShowCommandBar: 'show-command-bar'
+
+export const METADATA_TYPES = {
+    APEX_CLASS: "ApexClass",
+    CUSTOM_OBJECT: "CustomObject",
+    VISUALFORCE_PAGE: "ApexPage",
+    FLOW: "Flow",
+    PROFILE: "Profile",
+    TRIGGER: "ApexTrigger",
+    CUSTOM_LABEL: "CustomLabel",
+    USER: "User",
 };
-export const query = {
-  CustomLabels: `
-    SELECT 
-      Id,
-      Name,
-      Category,
-      Value,
-      NamespacePrefix,
-      MasterLabel
-    FROM
-      ExternalString
-    ORDER BY NamespacePrefix,Category`,
-  CustomObjectDef: `
-    SELECT
-      Id,
-      DeveloperName,
-      NamespacePrefix,
-      ManageableState
-    FROM
-      CustomObject`,
-  ApexClasses: `
-    SELECT 
-      Id,
-      Name,
-      NamespacePrefix
-    FROM
-      ApexClass`,
-  Triggers: `SELECT Id, Name, NamespacePrefix FROM ApexTrigger`,
-  Profiles: `SELECT Id, Name FROM Profile`,
-  ApexPages: `SELECT Id, Name, NamespacePrefix FROM ApexPage`,
-  Users: `SELECT Id, Name FROM User`,
-  ApexComponents: `SELECT Id, Name, NamespacePrefix FROM ApexComponent`,
-  Flows: `
-    SELECT
-      Id,
-      DeveloperName
-    FROM
-      FlowDefinition`,
-  nForceSysProps: `
-    SELECT
-      Id,
-      Name,
-      nFORCE__Category_Name__c,
-      nFORCE__Key__c
-    FROM
-      nFORCE__System_Properties__c`,
-  LlcBiSysProps: `
-    SELECT
-      Id,
-      Name,
-      LLC_BI__Category_Name__c,
-      LLC_BI__Key__c
-    FROM
-      LLC_BI__System_Properties__c`,
-  TestCookie: `SELECT Id FROM Account LIMIT 1`
+
+export const API_PATHS = {
+    tooling: `services/data/${API_VERSION}/tooling`,
+    data: `services/data/${API_VERSION}`,
+    query: `services/data/${API_VERSION}/query`,
 };
-export const defType = {
-  ApexPages: 'ApexPages',
-  Profiles: 'Profiles',
-  Triggers: 'Triggers',
-  ApexClasses: 'ApexClasses',
-  Users: 'Users',
-  ApexComponents: 'ApexComponents'
+
+export const QUERIES = {
+    CUSTOM_OBJECTS: `
+    SELECT Id, DeveloperName, NamespacePrefix, ManageableState 
+    FROM CustomObject 
+    WHERE ManageableState = 'unmanaged'
+  `,
+    CUSTOM_LABELS: `
+    SELECT Id, Name, Category, Value, NamespacePrefix, MasterLabel 
+    FROM ExternalString 
+    ORDER BY NamespacePrefix, Category
+  `,
+    TRIGGERS: `SELECT Id, Name, NamespacePrefix FROM ApexTrigger`,
+    PROFILES: `SELECT Id, Name FROM Profile`,
+    APEX_PAGES: `SELECT Id, Name, NamespacePrefix FROM ApexPage`,
+    USERS: `SELECT Id, Name FROM User`,
+    APEX_COMPONENTS: `SELECT Id, Name, NamespacePrefix FROM ApexComponent`,
+    APEX_CLASSES: `
+    SELECT Id, Name, NamespacePrefix 
+    FROM ApexClass
+  `,
+    FLOWS: `
+    SELECT Id, DeveloperName 
+    FROM FlowDefinition
+  `,
+    NFORCE_SYS_PROPS: `
+  SELECT
+    Id,
+    Name,
+    nFORCE__Category_Name__c,
+    nFORCE__Key__c
+  FROM
+    nFORCE__System_Properties__c`,
+    LLCBI_SYS_PROPS: `
+  SELECT
+    Id,
+    Name,
+    LLC_BI__Category_Name__c,
+    LLC_BI__Key__c
+  FROM
+    LLC_BI__System_Properties__c`,
 };
-export const defLabel = {
-  [defType.ApexPages]: 'Visualforce Page',
-  [defType.Profiles]: 'Profile',
-  [defType.Triggers]: 'Apex Trigger',
-  [defType.ApexClasses]: 'Apex Class',
-  [defType.Users]: 'User',
-  [defType.ApexComponents]: 'Visualforce Component'
+
+export const STORAGE_KEYS = {
+    COMMANDS: "commands",
+    METADATA: "metadata",
+    LABELS: "labels",
+    LAST_UPDATED: "lastUpdated",
 };
-export const defUrlExtra = {
-  [defType.Users]: '?noredirect=1'
-};
-export const toolingPath = `services/data/${SF_API_VERSION}/tooling`;
-export const dataPath = `services/data/${SF_API_VERSION}`;
-export const urlSuffix = {
-  Setup: 'ui/setup/Setup',
-  CustomLabels: `${toolingPath}/query/?q=${query.CustomLabels}`,
-  CustomObjectDef: `${toolingPath}/query/?q=${query.CustomObjectDef}`,
-  ObjectMetadata: `${dataPath}/sobjects/`,
-  Flows: `${toolingPath}/query/?q=${query.Flows}`,
-  nForceSysProps: `${dataPath}/query/?q=${query.nForceSysProps}`,
-  LlcBiSysProps: `${dataPath}/query/?q=${query.LlcBiSysProps}`,
-  TestCookie: `${dataPath}/query/?q=${query.TestCookie}`,
-  [defType.ApexClasses]: `${toolingPath}/query/?q=${query.ApexClasses}`,
-  [defType.Triggers]: `${toolingPath}/query/?q=${query.Triggers}`,
-  [defType.Profiles]: `${toolingPath}/query/?q=${query.Profiles}`,
-  [defType.ApexPages]: `${toolingPath}/query/?q=${query.ApexPages}`,
-  [defType.Users]: `${toolingPath}/query/?q=${query.Users}`,
-  [defType.ApexComponents]: `${toolingPath}/query/?q=${query.ApexComponents}`
-};
+
+export const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+
+export const COMMAND_BAR_ID = "lightning-nav-command-bar";
