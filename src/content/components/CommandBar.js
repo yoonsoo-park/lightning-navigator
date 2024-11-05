@@ -714,4 +714,35 @@ export class CommandBar {
                 break;
         }
     }
+
+    async fetchMetadata(types) {
+        try {
+            if (!this.cookie) {
+                throw new Error("Cookie not available");
+            }
+
+            const key = `${this.cookie.domain}!${this.cookie.value.substring(
+                0,
+                15
+            )}`;
+
+            // Send message to background script to fetch metadata
+            const response = await chrome.runtime.sendMessage({
+                action: ACTION_TYPES.REFRESH_METADATA,
+                data: {
+                    cookie: this.cookie,
+                    key: key,
+                    types: types, // Pass specific types to fetch
+                },
+            });
+
+            if (response?.commands) {
+                return response.commands;
+            }
+            return null;
+        } catch (error) {
+            console.error("Failed to fetch metadata:", error);
+            throw error;
+        }
+    }
 }
