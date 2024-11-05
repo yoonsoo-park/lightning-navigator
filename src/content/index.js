@@ -9,6 +9,8 @@ class LightningNavigator {
         this.cookie = null;
         this.commands = null;
         this.initialized = false;
+        this.isMetadataLoading = false;
+        this.lastMetadataUpdate = null;
 
         // Initialize
         this.init();
@@ -40,8 +42,11 @@ class LightningNavigator {
                 this.handleKeyboardShortcut.bind(this)
             );
 
-            // Fetch initial metadata
+            // Pre-fetch metadata immediately after cookie is available
             await this.refreshMetadata();
+
+            // Set up periodic metadata refresh (e.g., every 5 minutes)
+            setInterval(() => this.refreshMetadata(true), 5 * 60 * 1000);
 
             this.initialized = true;
             console.log("LightningNavigator initialized successfully");
@@ -68,8 +73,15 @@ class LightningNavigator {
         }
     }
 
-    async refreshMetadata() {
+    async refreshMetadata(background = false) {
+        if (this.isMetadataLoading) return;
+
         try {
+            this.isMetadataLoading = true;
+            if (!background) {
+                this.commandBar?.setLoading(true);
+            }
+
             console.log("Refreshing metadata...");
             if (!this.cookie) {
                 throw new Error("Cookie not available");
@@ -85,8 +97,13 @@ class LightningNavigator {
                 this.commandBar?.updateCommands(response.commands);
                 console.log("Metadata refreshed successfully");
             }
-        } catch (error) {
-            console.error("Failed to refresh metadata:", error);
+
+            this.lastMetadataUpdate = Date.now();
+        } finally {
+            this.isMetadataLoading = false;
+            if (!background) {
+                this.commandBar?.setLoading(false);
+            }
         }
     }
 
@@ -97,6 +114,14 @@ class LightningNavigator {
         switch (action) {
             case ACTION_TYPES.SHOW_COMMAND_BAR:
                 if (this.commandBar) {
+                    // Check if metadata needs refresh (e.g., older than 5 minutes)
+                    const shouldRefresh =
+                        !this.lastMetadataUpdate ||
+                        Date.now() - this.lastMetadataUpdate > 5 * 60 * 1000;
+
+                    if (shouldRefresh) {
+                        this.refreshMetadata(true); // Refresh in background
+                    }
                     this.commandBar.show();
                 }
                 break;
