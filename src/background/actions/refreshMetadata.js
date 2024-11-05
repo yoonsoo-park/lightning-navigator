@@ -141,9 +141,10 @@ const queryMetadata = async (cookie, type, query) => {
  * Main handler for metadata refresh
  */
 export const handleRefreshMetadata = async (data, sender) => {
-    const { cookie } = data;
+    // Keep track of port for long-lived connection
+    const port = chrome.runtime.connect({ name: "metadata-refresh" });
 
-    // Generate the key from cookie data
+    const { cookie } = data;
     const key = `${cookie.domain}!${cookie.value.substring(0, 15)}`;
     console.log("Refreshing metadata for key:", key);
     const orgKey = key.split("!")[0];
@@ -155,46 +156,60 @@ export const handleRefreshMetadata = async (data, sender) => {
     };
 
     try {
-        // Fetch all metadata in parallel
-        const [
-            setupItems,
-            objectMetadata,
-            customObjects,
-            apexClasses,
-            visualforcePages,
-            flows,
-        ] = await Promise.all([
+        // Send progress updates
+        if (sender?.tab?.id) {
+            await chrome.tabs.sendMessage(sender.tab.id, {
+                action: ACTION_TYPES.REFRESH_METADATA_STATUS,
+                status: "starting",
+            });
+        }
+
+        // Split metadata fetching into chunks
+        // First chunk: Essential metadata
+        const [setupItems, objectMetadata] = await Promise.all([
             fetchSetupTree(cookie),
             fetchObjectMetadata(cookie),
-            queryMetadata(
-                cookie,
-                METADATA_TYPES.CUSTOM_OBJECT,
-                `SELECT Id, DeveloperName, NamespacePrefix, ManageableState 
-                     FROM CustomObject 
-                     WHERE ManageableState = 'unmanaged'`
-            ),
-            queryMetadata(
-                cookie,
-                METADATA_TYPES.APEX_CLASS,
-                `SELECT Id, Name, NamespacePrefix 
-                     FROM ApexClass`
-            ),
-            queryMetadata(
-                cookie,
-                METADATA_TYPES.VISUALFORCE_PAGE,
-                `SELECT Id, Name, NamespacePrefix 
-                     FROM ApexPage`
-            ),
-            queryMetadata(
-                cookie,
-                METADATA_TYPES.FLOW,
-                `SELECT Id, DeveloperName 
-                     FROM FlowDefinition`
-            ),
         ]);
 
-        // Combine metadata
         Object.assign(commands, setupItems, objectMetadata);
+
+        // Send progress update
+        if (sender?.tab?.id) {
+            await chrome.tabs.sendMessage(sender.tab.id, {
+                action: ACTION_TYPES.REFRESH_METADATA_STATUS,
+                status: "fetching_additional",
+            });
+        }
+
+        // Second chunk: Additional metadata
+        const [customObjects, apexClasses, visualforcePages, flows] =
+            await Promise.all([
+                queryMetadata(
+                    cookie,
+                    METADATA_TYPES.CUSTOM_OBJECT,
+                    `SELECT Id, DeveloperName, NamespacePrefix, ManageableState 
+                     FROM CustomObject 
+                     WHERE ManageableState = 'unmanaged'`
+                ),
+                queryMetadata(
+                    cookie,
+                    METADATA_TYPES.APEX_CLASS,
+                    `SELECT Id, Name, NamespacePrefix 
+                     FROM ApexClass`
+                ),
+                queryMetadata(
+                    cookie,
+                    METADATA_TYPES.VISUALFORCE_PAGE,
+                    `SELECT Id, Name, NamespacePrefix 
+                     FROM ApexPage`
+                ),
+                queryMetadata(
+                    cookie,
+                    METADATA_TYPES.FLOW,
+                    `SELECT Id, DeveloperName 
+                     FROM FlowDefinition`
+                ),
+            ]);
 
         // Process custom objects
         customObjects.forEach((obj) => {
@@ -210,7 +225,15 @@ export const handleRefreshMetadata = async (data, sender) => {
             }
         });
 
-        // Store updated metadata
+        // Send progress update
+        if (sender?.tab?.id) {
+            await chrome.tabs.sendMessage(sender.tab.id, {
+                action: ACTION_TYPES.REFRESH_METADATA_STATUS,
+                status: "storing",
+            });
+        }
+
+        // Store in chunks to avoid memory issues
         const storage = await chrome.storage.local.get([
             STORAGE_KEYS.COMMANDS,
             STORAGE_KEYS.LAST_UPDATED,
@@ -235,18 +258,31 @@ export const handleRefreshMetadata = async (data, sender) => {
             [STORAGE_KEYS.LAST_UPDATED]: lastUpdated,
         });
 
-        // Notify content script with the new commands
+        // Final notification
         if (sender?.tab?.id) {
             await chrome.tabs.sendMessage(sender.tab.id, {
                 action: ACTION_TYPES.REFRESH_METADATA,
                 commands: commands,
+                status: "complete",
             });
         }
 
-        // Return the commands in the response
+        // Disconnect port
+        port.disconnect();
+
         return { success: true, commands: commands };
     } catch (error) {
         console.error("Metadata refresh failed:", error);
+        // Notify of error
+        if (sender?.tab?.id) {
+            await chrome.tabs.sendMessage(sender.tab.id, {
+                action: ACTION_TYPES.REFRESH_METADATA_STATUS,
+                status: "error",
+                error: error.message,
+            });
+        }
+        // Disconnect port
+        port.disconnect();
         throw error;
     }
 };
