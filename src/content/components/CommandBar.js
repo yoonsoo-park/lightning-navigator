@@ -12,6 +12,10 @@ export class CommandBar {
         this.selectedIndex = -1;
         this.filterTimeout = null;
         this.currentQuery = "";
+        this.isLoading = false;
+        this.loadingStage = null; // 'initial', 'full', null
+        this.retryCount = 0;
+        this.maxRetries = 3;
 
         console.log("Initializing CommandBar with cookie:", cookie);
 
@@ -20,6 +24,12 @@ export class CommandBar {
 
         // Initialize
         this.initialize();
+
+        // Add debounced search records
+        this.debouncedSearchRecords = this.debounce(
+            this.searchRecords.bind(this),
+            300
+        );
     }
 
     createElements() {
@@ -209,14 +219,107 @@ export class CommandBar {
         }
     }
 
-    show() {
-        console.log("Showing command bar");
+    async show() {
         this.visible = true;
         this.container.classList.add("visible");
         this.input.value = "";
         this.currentQuery = "";
         this.input.focus();
-        this.filterCommands("");
+
+        // Try to load cached data first
+        const cachedData = await this.loadCachedMetadata();
+        if (cachedData) {
+            this.updateCommands(cachedData);
+            this.filterCommands("");
+        }
+
+        // Load fresh metadata in background if needed
+        this.loadMetadataProgressively();
+    }
+
+    async loadCachedMetadata() {
+        try {
+            const key = `${this.cookie.domain}!${this.cookie.value.substring(
+                0,
+                15
+            )}`;
+            const response = await chrome.runtime.sendMessage({
+                action: ACTION_TYPES.GET_COMMANDS,
+                data: { key },
+            });
+            return response;
+        } catch (error) {
+            console.error("Failed to load cached metadata:", error);
+            return null;
+        }
+    }
+
+    async loadMetadataProgressively() {
+        if (this.isLoading) return;
+
+        try {
+            this.isLoading = true;
+            this.loadingStage = "initial";
+            this.setLoadingState("Loading essential data...");
+
+            // Load essential metadata first (setup menu and objects)
+            const initialData = await this.fetchMetadata(["setup", "objects"]);
+            if (initialData) {
+                this.updateCommands(initialData);
+                this.filterCommands(this.currentQuery);
+            }
+
+            // Load full metadata in background
+            this.loadingStage = "full";
+            this.setLoadingState("Loading additional data...");
+            const fullData = await this.fetchMetadata([
+                "apex",
+                "visualforce",
+                "flows",
+            ]);
+            if (fullData) {
+                this.updateCommands({ ...this.commands, ...fullData });
+                this.filterCommands(this.currentQuery);
+            }
+        } catch (error) {
+            console.error("Failed to load metadata:", error);
+            this.handleLoadError(error);
+        } finally {
+            this.isLoading = false;
+            this.loadingStage = null;
+            this.setLoadingState(null);
+        }
+    }
+
+    setLoadingState(message) {
+        const loadingEl = this.container.querySelector(
+            ".lightning-nav-loading"
+        );
+        if (message) {
+            if (!loadingEl) {
+                const el = document.createElement("div");
+                el.className = "lightning-nav-loading";
+                el.textContent = message;
+                this.container.insertBefore(el, this.resultsList);
+            } else {
+                loadingEl.textContent = message;
+            }
+        } else if (loadingEl) {
+            loadingEl.remove();
+        }
+    }
+
+    handleLoadError(error) {
+        if (this.retryCount < this.maxRetries) {
+            this.retryCount++;
+            setTimeout(() => {
+                this.loadMetadataProgressively();
+            }, 1000 * this.retryCount); // Exponential backoff
+        } else {
+            this.showError(
+                `Failed to load metadata: ${error.message}. Please try again later.`
+            );
+        }
     }
 
     hide() {
@@ -237,21 +340,11 @@ export class CommandBar {
 
         const results = [];
         const normalizedQuery = query.toLowerCase();
+        const MAX_RESULTS = 50;
 
-        // If query is at least 2 characters, search for records
-        if (normalizedQuery.length >= 2) {
-            try {
-                // Search for records in parallel with metadata search
-                const recordResults = await this.searchRecords(normalizedQuery);
-                results.push(...recordResults);
-            } catch (error) {
-                console.error("Error searching records:", error);
-            }
-        }
-
-        // Search metadata commands
+        // First handle metadata commands
         Object.entries(this.commands).forEach(([name, command]) => {
-            if (!command) return;
+            if (!command || results.length >= MAX_RESULTS) return;
 
             const normalizedName = name.toLowerCase();
             let score = 0;
@@ -288,13 +381,43 @@ export class CommandBar {
             }
         });
 
-        results.sort((a, b) => {
-            if (b.score !== a.score) return b.score - a.score;
-            return a.name.localeCompare(b.name);
-        });
-
-        console.log(`Found ${results.length} matching items`);
+        // Render initial results
         this.renderResults(results);
+
+        // Then handle record search if query is long enough
+        if (normalizedQuery.length >= 2) {
+            try {
+                this.setLoading(true);
+                const recordResults = await this.searchRecords(normalizedQuery);
+
+                // Transform record results into the correct format
+                const formattedRecordResults = recordResults.map((record) => ({
+                    name: record.name, // Use the already formatted name
+                    command: {
+                        ...record.command,
+                        recordType: record.command.type, // Ensure record type is passed
+                    },
+                    score: record.score,
+                }));
+
+                // Combine results
+                const combinedResults = [...results, ...formattedRecordResults]
+                    .sort((a, b) => {
+                        if (b.score !== a.score) return b.score - a.score;
+                        return a.name.localeCompare(b.name);
+                    })
+                    .slice(0, MAX_RESULTS);
+
+                // Only update if the query hasn't changed
+                if (this.currentQuery.toLowerCase() === normalizedQuery) {
+                    this.renderResults(combinedResults);
+                }
+            } catch (error) {
+                console.error("Error searching records:", error);
+            } finally {
+                this.setLoading(false);
+            }
+        }
     }
 
     async searchRecords(query) {
@@ -372,7 +495,10 @@ export class CommandBar {
     }
 
     renderResults(results) {
-        this.resultsList.innerHTML = "";
+        // Clear existing results
+        while (this.resultsList.firstChild) {
+            this.resultsList.removeChild(this.resultsList.firstChild);
+        }
         this.selectedIndex = -1;
 
         if (results.length === 0) {
@@ -382,6 +508,9 @@ export class CommandBar {
             this.resultsList.appendChild(noResults);
             return;
         }
+
+        // Create document fragment for better performance
+        const fragment = document.createDocumentFragment();
 
         results.forEach(({ name, command }, index) => {
             const item = document.createElement("div");
@@ -394,22 +523,57 @@ export class CommandBar {
             if (command.type === "record") {
                 const icon = document.createElement("span");
                 icon.className = "lightning-nav-result-icon";
-                icon.textContent = "📄 "; // You can replace this with an actual icon
+                // Use different icons for different record types
+                const iconMap = {
+                    User: "👤",
+                    Account: "🏢",
+                    Contact: "📇",
+                    Opportunity: "💰",
+                    // Add more record types as needed
+                    default: "📄",
+                };
+                icon.textContent =
+                    iconMap[command.recordType] || iconMap.default;
                 nameSpan.appendChild(icon);
             }
 
-            const textSpan = document.createElement("span");
-            textSpan.textContent = name;
-            nameSpan.appendChild(textSpan);
+            // Apply highlighting
+            if (this.currentQuery) {
+                const segments = this.getHighlights(
+                    name,
+                    this.currentQuery.toLowerCase()
+                );
+                segments.forEach((segment) => {
+                    const segmentSpan = document.createElement("span");
+                    segmentSpan.textContent = segment.text;
+                    if (segment.highlight) {
+                        segmentSpan.className = "lightning-nav-highlight";
+                    }
+                    nameSpan.appendChild(segmentSpan);
+                });
+            } else {
+                nameSpan.textContent = name;
+            }
 
             item.appendChild(nameSpan);
-            item.addEventListener("click", () => {
-                this.executeCommand(command);
-            });
-
-            this.resultsList.appendChild(item);
+            item.dataset.index = index;
+            fragment.appendChild(item);
         });
 
+        // Add single event listener on container
+        this.resultsList.addEventListener(
+            "click",
+            (e) => {
+                const resultItem = e.target.closest(".lightning-nav-result");
+                if (resultItem) {
+                    const index = parseInt(resultItem.dataset.index, 10);
+                    this.executeCommand(results[index].command);
+                }
+            },
+            { once: true }
+        ); // Remove listener after first use
+
+        this.resultsList.appendChild(fragment);
         this.updateSelection(0);
     }
 
@@ -493,6 +657,61 @@ export class CommandBar {
     handleClickOutside(event) {
         if (this.visible && !this.container.contains(event.target)) {
             this.hide();
+        }
+    }
+
+    setLoading(isLoading) {
+        const existingSpinner = this.container.querySelector(
+            ".lightning-nav-spinner"
+        );
+
+        if (isLoading) {
+            if (!existingSpinner) {
+                const spinner = document.createElement("div");
+                spinner.className = "lightning-nav-spinner";
+                spinner.innerHTML = `
+                    <div class="lightning-nav-spinner-icon"></div>
+                    <span class="lightning-nav-spinner-text">Searching records...</span>
+                `;
+                // Insert spinner before the results list
+                this.container.insertBefore(spinner, this.resultsList);
+            }
+        } else {
+            existingSpinner?.remove();
+        }
+    }
+
+    // Add debounce utility
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    updateRefreshStatus(status) {
+        switch (status) {
+            case "starting":
+                this.setLoading(true, "Fetching essential metadata...");
+                break;
+            case "fetching_additional":
+                this.setLoading(true, "Fetching additional metadata...");
+                break;
+            case "storing":
+                this.setLoading(true, "Storing metadata...");
+                break;
+            case "complete":
+                this.setLoading(false);
+                break;
+            case "error":
+                this.setLoading(false);
+                this.showError("Metadata refresh failed");
+                break;
         }
     }
 }
