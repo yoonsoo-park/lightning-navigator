@@ -112,3 +112,65 @@
     font-size: 14px;
     text-align: center;
 }
+
+.lightning-nav-loading {
+    padding: 8px 16px;
+    background-color: #f8f9fa;
+    color: #666;
+    font-size: 14px;
+    text-align: center;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.lightning-nav-loading::after {
+    content: "...";
+    animation: ellipsis 1.5s infinite;
+}
+
+@keyframes ellipsis {
+    0% {
+        content: ".";
+    }
+    33% {
+        content: "..";
+    }
+    66% {
+        content: "...";
+    }
+}
+
+.lightning-nav-error {
+    padding: 16px;
+    color: #dc3545;
+    text-align: center;
+    font-size: 14px;
+}
+
+.lightning-nav-spinner {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.lightning-nav-spinner-icon {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #e5e5e5;
+    border-top-color: #0070d2;
+    border-radius: 50%;
+    margin-right: 8px;
+    animation: spin 1s linear infinite;
+}
+
+.lightning-nav-spinner-text {
+    color: #666;
+    font-size: 14px;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
