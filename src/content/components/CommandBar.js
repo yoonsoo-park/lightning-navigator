@@ -16,6 +16,9 @@ export class CommandBar {
         this.loadingStage = null; // 'initial', 'full', null
         this.retryCount = 0;
         this.maxRetries = 3;
+        this.currentPage = 0;
+        this.hasMoreResults = false;
+        this.allResults = []; // Store all filtered results
 
         console.log("Initializing CommandBar with cookie:", cookie);
 
@@ -49,6 +52,12 @@ export class CommandBar {
         // Results container
         this.resultsList = document.createElement("div");
         this.resultsList.className = "lightning-nav-results";
+
+        // Add scroll event listener
+        this.resultsList.addEventListener(
+            "scroll",
+            this.handleScroll.bind(this)
+        );
 
         // Assemble
         this.container.appendChild(this.input);
@@ -260,7 +269,7 @@ export class CommandBar {
         try {
             this.isLoading = true;
             this.loadingStage = "initial";
-            this.setLoadingState("Loading essential data...");
+            this.setLoadingState("Loading essential data");
 
             // Load essential metadata first (setup menu and objects)
             const initialData = await this.fetchMetadata(["setup", "objects"]);
@@ -271,7 +280,7 @@ export class CommandBar {
 
             // Load full metadata in background
             this.loadingStage = "full";
-            this.setLoadingState("Loading additional data...");
+            this.setLoadingState("Loading additional data");
             const fullData = await this.fetchMetadata([
                 "apex",
                 "visualforce",
@@ -299,10 +308,20 @@ export class CommandBar {
             if (!loadingEl) {
                 const el = document.createElement("div");
                 el.className = "lightning-nav-loading";
-                el.textContent = message;
+                el.innerHTML = `
+                    ${message}
+                    <div class="lightning-nav-loading-dots">
+                        <div class="lightning-nav-loading-dot"></div>
+                        <div class="lightning-nav-loading-dot"></div>
+                        <div class="lightning-nav-loading-dot"></div>
+                    </div>
+                `;
                 this.container.insertBefore(el, this.resultsList);
             } else {
-                loadingEl.textContent = message;
+                const textNode = loadingEl.firstChild;
+                if (textNode) {
+                    textNode.textContent = message;
+                }
             }
         } else if (loadingEl) {
             loadingEl.remove();
@@ -340,11 +359,21 @@ export class CommandBar {
 
         const results = [];
         const normalizedQuery = query.toLowerCase();
-        const MAX_RESULTS = 50;
+        const PAGE_SIZE = 50;
+
+        // Always reset pagination and results when query changes
+        this.currentPage = 0;
+        this.allResults = [];
+
+        // If query is empty, clear results and return
+        if (!normalizedQuery) {
+            this.renderResults([]);
+            return;
+        }
 
         // First handle metadata commands
         Object.entries(this.commands).forEach(([name, command]) => {
-            if (!command || results.length >= MAX_RESULTS) return;
+            if (!command) return;
 
             const normalizedName = name.toLowerCase();
             let score = 0;
@@ -381,8 +410,22 @@ export class CommandBar {
             }
         });
 
+        // Store all results
+        this.allResults = results.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return a.name.localeCompare(b.name);
+        });
+
+        // Get current page of results
+        const paginatedResults = this.allResults.slice(
+            0,
+            (this.currentPage + 1) * PAGE_SIZE
+        );
+
+        this.hasMoreResults = this.allResults.length > paginatedResults.length;
+
         // Render initial results
-        this.renderResults(results);
+        this.renderResults(paginatedResults);
 
         // Then handle record search if query is long enough
         if (normalizedQuery.length >= 2) {
@@ -406,7 +449,7 @@ export class CommandBar {
                         if (b.score !== a.score) return b.score - a.score;
                         return a.name.localeCompare(b.name);
                     })
-                    .slice(0, MAX_RESULTS);
+                    .slice(0, PAGE_SIZE);
 
                 // Only update if the query hasn't changed
                 if (this.currentQuery.toLowerCase() === normalizedQuery) {
@@ -495,13 +538,38 @@ export class CommandBar {
     }
 
     renderResults(results) {
-        // Clear existing results
-        while (this.resultsList.firstChild) {
-            this.resultsList.removeChild(this.resultsList.firstChild);
-        }
-        this.selectedIndex = -1;
+        if (this.currentPage === 0) {
+            // Clear existing results only on first page
+            while (this.resultsList.firstChild) {
+                this.resultsList.removeChild(this.resultsList.firstChild);
+            }
 
-        if (results.length === 0) {
+            // Remove existing click listener if any
+            this.resultsList.removeEventListener(
+                "click",
+                this.handleResultClick
+            );
+
+            // Add new click listener for all results
+            this.resultsList.addEventListener(
+                "click",
+                (this.handleResultClick = (e) => {
+                    const resultItem = e.target.closest(
+                        ".lightning-nav-result"
+                    );
+                    if (resultItem) {
+                        const index = parseInt(resultItem.dataset.index, 10);
+                        this.executeCommand(results[index].command);
+                    }
+                })
+            );
+        }
+
+        if (
+            results.length === 0 &&
+            this.currentPage === 0 &&
+            this.currentQuery.length != 0
+        ) {
             const noResults = document.createElement("div");
             noResults.className = "lightning-nav-no-results";
             noResults.textContent = "No matching items found";
@@ -512,7 +580,11 @@ export class CommandBar {
         // Create document fragment for better performance
         const fragment = document.createDocumentFragment();
 
-        results.forEach(({ name, command }, index) => {
+        // Only render new results
+        const startIndex = this.currentPage * 50;
+        const newResults = results.slice(startIndex);
+
+        newResults.forEach(({ name, command }, index) => {
             const item = document.createElement("div");
             item.className = "lightning-nav-result";
 
@@ -560,21 +632,12 @@ export class CommandBar {
             fragment.appendChild(item);
         });
 
-        // Add single event listener on container
-        this.resultsList.addEventListener(
-            "click",
-            (e) => {
-                const resultItem = e.target.closest(".lightning-nav-result");
-                if (resultItem) {
-                    const index = parseInt(resultItem.dataset.index, 10);
-                    this.executeCommand(results[index].command);
-                }
-            },
-            { once: true }
-        ); // Remove listener after first use
-
         this.resultsList.appendChild(fragment);
-        this.updateSelection(0);
+
+        // Only update selection if this is the first page
+        if (this.currentPage === 0) {
+            this.updateSelection(0);
+        }
     }
 
     handleKeydown(event) {
@@ -660,21 +723,26 @@ export class CommandBar {
         }
     }
 
-    setLoading(isLoading) {
+    setLoading(isLoading, message = "Searching records...") {
         const existingSpinner = this.container.querySelector(
             ".lightning-nav-spinner"
         );
 
-        if (isLoading) {
+        if (isLoading && this.currentQuery.length >= 2) {
+            // Only show spinner if actually searching
             if (!existingSpinner) {
                 const spinner = document.createElement("div");
                 spinner.className = "lightning-nav-spinner";
                 spinner.innerHTML = `
                     <div class="lightning-nav-spinner-icon"></div>
-                    <span class="lightning-nav-spinner-text">Searching records...</span>
+                    <span class="lightning-nav-spinner-text">${message}</span>
                 `;
                 // Insert spinner before the results list
                 this.container.insertBefore(spinner, this.resultsList);
+            } else {
+                existingSpinner.querySelector(
+                    ".lightning-nav-spinner-text"
+                ).textContent = message;
             }
         } else {
             existingSpinner?.remove();
@@ -744,5 +812,22 @@ export class CommandBar {
             console.error("Failed to fetch metadata:", error);
             throw error;
         }
+    }
+
+    handleScroll(event) {
+        if (this.isLoading || !this.hasMoreResults) return;
+
+        const container = event.target;
+        const scrollPosition = container.scrollTop + container.clientHeight;
+        const scrollThreshold = container.scrollHeight - 100; // Load more when 100px from bottom
+
+        if (scrollPosition >= scrollThreshold) {
+            this.loadMoreResults();
+        }
+    }
+
+    loadMoreResults() {
+        this.currentPage++;
+        this.filterCommands(this.currentQuery);
     }
 }

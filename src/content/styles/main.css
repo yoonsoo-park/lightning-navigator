@@ -120,30 +120,42 @@
     font-size: 14px;
     text-align: center;
     border-bottom: 1px solid #e5e5e5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.lightning-nav-loading::after {
-    content: "...";
-    animation: ellipsis 1.5s infinite;
+.lightning-nav-loading-dots {
+    display: inline-flex;
+    margin-left: 4px;
 }
 
-@keyframes ellipsis {
-    0% {
-        content: ".";
-    }
-    33% {
-        content: "..";
-    }
-    66% {
-        content: "...";
-    }
+.lightning-nav-loading-dot {
+    width: 4px;
+    height: 4px;
+    margin: 0 2px;
+    background-color: #666;
+    border-radius: 50%;
+    opacity: 0.3;
+    animation: dotFade 1.4s infinite;
 }
 
-.lightning-nav-error {
-    padding: 16px;
-    color: #dc3545;
-    text-align: center;
-    font-size: 14px;
+.lightning-nav-loading-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.lightning-nav-loading-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes dotFade {
+    0%,
+    100% {
+        opacity: 0.3;
+    }
+    50% {
+        opacity: 1;
+    }
 }
 
 .lightning-nav-spinner {
