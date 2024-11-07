@@ -118,6 +118,33 @@ async function parseUrl(url) {
     }
 }
 
+const SALESFORCE_DOMAIN_PATTERNS = {
+    SCRATCH: {
+        SETUP: ".scratch.my.salesforce-setup.com",
+        LIGHTNING: ".scratch.lightning.force.com",
+        CLASSIC: ".scratch.my.salesforce.com",
+        FILE: ".scratch.file.force.com",
+    },
+    PRODUCTION: {
+        LIGHTNING: ".lightning.force.com",
+        CLASSIC: ".my.salesforce.com",
+        FILE: ".file.force.com",
+    },
+};
+
+// Helper function to map domains
+const mapDomainToMainInstance = (hostname) => {
+    const domainParts = hostname.split(".");
+    const orgName = domainParts[0];
+
+    // If we're in a setup domain, map to the main instance
+    if (hostname.includes("salesforce-setup.com")) {
+        return `${orgName}.scratch.my.salesforce.com`;
+    }
+
+    return hostname;
+};
+
 /**
  * Handles fetching and validating Salesforce session cookies
  */
@@ -133,44 +160,50 @@ export const handleFetchCookie = async (data, sender) => {
             throw new Error("Failed to parse domain from URL");
         }
 
-        const orgDomain = urlInfo.hostname;
-        let orgName = orgDomain.split(".")[0];
+        // Handle scratch org domains
+        const hostname = urlInfo.hostname;
+        const domainParts = hostname.split(".");
 
-        console.log("Org domain:", orgDomain, "Org name:", orgName);
+        // Try to find the actual Salesforce domain
+        let orgDomain = hostname;
+        let orgName = domainParts[0];
 
-        // Get all SID cookies
-        const allCookies = await chrome.cookies.getAll({ name: "sid" });
-        console.log("Found cookies:", allCookies.length);
+        // Check if we're in a scratch org
+        if (hostname.includes("scratch")) {
+            const mappedDomain = mapDomainToMainInstance(hostname);
+            const allCookies = await chrome.cookies.getAll({ name: "sid" });
 
-        let possibleCookies = getFilteredCookies(allCookies, orgName);
-        console.log("Filtered cookies:", possibleCookies.length);
+            // Try each possible domain pattern
+            for (const pattern of Object.values(
+                SALESFORCE_DOMAIN_PATTERNS.SCRATCH
+            )) {
+                const domainToTry = `${orgName}${pattern}`;
+                const cookies = getFilteredCookies(allCookies, orgName);
 
-        // Handle custom domains with -- prefix
-        while (
-            possibleCookies.length === 0 &&
-            orgName.lastIndexOf("--") !== -1
-        ) {
-            orgName = orgName.substring(0, orgName.lastIndexOf("--"));
-            possibleCookies = getFilteredCookies(allCookies, orgName);
-            console.log(
-                "Retrying with org name:",
-                orgName,
-                "Found:",
-                possibleCookies.length
-            );
-        }
+                for (const cookie of cookies) {
+                    if (cookie.domain.endsWith(pattern)) {
+                        console.log(
+                            "Validating cookie for domain:",
+                            cookie.domain
+                        );
+                        const isValid = await validateCookie(cookie);
+                        if (isValid) {
+                            console.log("Valid cookie found:", cookie.domain);
+                            return { cookie };
+                        }
+                    }
+                }
+            }
+        } else {
+            // Original logic for non-scratch orgs
+            const allCookies = await chrome.cookies.getAll({ name: "sid" });
+            const possibleCookies = getFilteredCookies(allCookies, orgName);
 
-        if (possibleCookies.length === 0) {
-            throw new Error("No valid Salesforce session found");
-        }
-
-        // Find first valid cookie
-        for (const cookie of possibleCookies) {
-            console.log("Validating cookie for domain:", cookie.domain);
-            const isValid = await validateCookie(cookie);
-            if (isValid) {
-                console.log("Valid cookie found:", cookie.domain);
-                return { cookie };
+            for (const cookie of possibleCookies) {
+                const isValid = await validateCookie(cookie);
+                if (isValid) {
+                    return { cookie };
+                }
             }
         }
 
