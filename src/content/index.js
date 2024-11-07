@@ -87,18 +87,44 @@ class LightningNavigator {
                 throw new Error("Cookie not available");
             }
 
-            const response = await chrome.runtime.sendMessage({
-                action: ACTION_TYPES.REFRESH_METADATA,
-                data: { cookie: this.cookie },
-            });
+            // Add retry logic
+            let attempts = 0;
+            const maxAttempts = 3;
+            let lastError;
 
-            if (response?.commands) {
-                this.commands = response.commands;
-                this.commandBar?.updateCommands(response.commands);
-                console.log("Metadata refreshed successfully");
+            while (attempts < maxAttempts) {
+                try {
+                    const response = await chrome.runtime.sendMessage({
+                        action: ACTION_TYPES.REFRESH_METADATA,
+                        data: { cookie: this.cookie },
+                    });
+
+                    if (response?.commands) {
+                        this.commands = response.commands;
+                        this.commandBar?.updateCommands(response.commands);
+                        console.log("Metadata refreshed successfully");
+                        this.lastMetadataUpdate = Date.now();
+                        return;
+                    }
+
+                    // Wait before retry
+                    await new Promise((resolve) => setTimeout(resolve, 1000));
+                    attempts++;
+                } catch (error) {
+                    lastError = error;
+                    console.warn(
+                        `Metadata refresh attempt ${attempts + 1} failed:`,
+                        error
+                    );
+                    await new Promise((resolve) => setTimeout(resolve, 1000));
+                    attempts++;
+                }
             }
 
-            this.lastMetadataUpdate = Date.now();
+            throw (
+                lastError ||
+                new Error("Failed to refresh metadata after multiple attempts")
+            );
         } finally {
             this.isMetadataLoading = false;
             if (!background) {
