@@ -29,20 +29,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return false;
     }
 
-    // Execute handler
+    // Execute handler with improved error handling
     try {
         handler(data, sender)
             .then((response) => {
                 console.log(`Handler response for ${action}:`, response);
-                sendResponse(response);
+                try {
+                    sendResponse(response);
+                } catch (error) {
+                    console.warn("Could not send response:", error);
+                }
             })
             .catch((error) => {
                 console.error(`Error in handler ${action}:`, error);
-                sendResponse({ error: error.message });
+                try {
+                    sendResponse({ error: error.message });
+                } catch (sendError) {
+                    console.warn("Could not send error response:", sendError);
+                }
             });
     } catch (error) {
         console.error(`Error executing handler ${action}:`, error);
-        sendResponse({ error: error.message });
+        try {
+            sendResponse({ error: error.message });
+        } catch (sendError) {
+            console.warn("Could not send error response:", sendError);
+        }
     }
 
     // Keep message channel open
